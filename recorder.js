@@ -1,28 +1,3 @@
-//----------------------------------------------------------------------------
-//Copyright (c) 2005 Zope Foundation and Contributors.
-
-//This software is subject to the provisions of the Zope Public License,
-//Version 2.1 (ZPL).  A copy of the ZPL should accompany this distribution.
-//THIS SOFTWARE IS PROVIDED "AS IS" AND ANY AND ALL EXPRESS OR IMPLIED
-//WARRANTIES ARE DISCLAIMED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-//WARRANTIES OF TITLE, MERCHANTABILITY, AGAINST INFRINGEMENT, AND FITNESS
-//FOR A PARTICULAR PURPOSE.
-
-
-//TestRecorder - a javascript library to support browser test recording. It
-//is designed to be as cross-browser compatible as possible and to promote 
-//loose coupling with the user interface, making it easier to evolve the UI
-//and experiment with alternative interfaces.
-
-//caveats: popup windows undefined, cant handle framesets
-
-//todo:
-//- capture submit (w/lookback for doctest)
-//- cleanup strings
-
-
-//Contact Brian Lloyd (brian@zope.com) with questions or comments.
-//---------------------------------------------------------------------------
 
 if (typeof(TestRecorder) == "undefined") {
     TestRecorder = {};
@@ -53,16 +28,12 @@ if (typeof(TestRecorder.Browser) == "undefined") {
 
 TestRecorder.Browser.captureEvent = function(wnd, name, func) {
     var lname = name.toLowerCase();
-    var doc = wnd.document;
-    wnd.captureEvents(Event[name.toUpperCase()]);
-    wnd["on" + lname] = func;
+    wnd.addEventListener(lname, func);
 }
 
 TestRecorder.Browser.releaseEvent = function(wnd, name, func) {
     var lname = name.toLowerCase();
-    var doc = wnd.document;
-    wnd.releaseEvents(Event[name.toUpperCase()]);
-    wnd["on" + lname] = null;
+    wnd.removeEventListener(lname, func);
 }
 
 TestRecorder.Browser.getSelection = function(wnd) {
@@ -437,7 +408,11 @@ TestRecorder.DocumentEvent = function(type, target) {
 TestRecorder.ElementEvent = function(type, target, text) {
     this.type = type;
     this.info = new TestRecorder.ElementInfo(target);
-    this.text = text ? text : recorder.strip(contextmenu.innertext(target));
+    if(this.info.tagName === 'BODY'){
+        this.text = '';
+    }else{
+        this.text = text ? text : recorder.strip(contextmenu.innertext(target));
+    }
 }
 
 TestRecorder.CommentEvent = function(text) {
@@ -858,26 +833,16 @@ TestRecorder.Recorder.prototype.pageLoad = function() {
 TestRecorder.Recorder.prototype.captureEvents = function() {
     var wnd = this.window;
     TestRecorder.Browser.captureEvent(wnd, "contextmenu", this.oncontextmenu);
-    TestRecorder.Browser.captureEvent(wnd, "drag", this.ondrag);
-    TestRecorder.Browser.captureEvent(wnd, "mousedown", this.onmousedown);
-    TestRecorder.Browser.captureEvent(wnd, "mouseup", this.onmouseup);
     TestRecorder.Browser.captureEvent(wnd, "click", this.onclick);
     TestRecorder.Browser.captureEvent(wnd, "change", this.onchange);
-    TestRecorder.Browser.captureEvent(wnd, "keypress", this.onkeypress);
-    TestRecorder.Browser.captureEvent(wnd, "select", this.onselect);
     TestRecorder.Browser.captureEvent(wnd, "submit", this.onsubmit);
 }
 
 TestRecorder.Recorder.prototype.releaseEvents = function() {
     var wnd = this.window;
     TestRecorder.Browser.releaseEvent(wnd, "contextmenu", this.oncontextmenu);
-    TestRecorder.Browser.releaseEvent(wnd, "drag", this.ondrag);
-    TestRecorder.Browser.releaseEvent(wnd, "mousedown", this.onmousedown);
-    TestRecorder.Browser.releaseEvent(wnd, "mouseup", this.onmouseup);
     TestRecorder.Browser.releaseEvent(wnd, "click", this.onclick);
     TestRecorder.Browser.releaseEvent(wnd, "change", this.onchange);
-    TestRecorder.Browser.releaseEvent(wnd, "keypress", this.onkeypress);
-    TestRecorder.Browser.releaseEvent(wnd, "select", this.onselect);
     TestRecorder.Browser.releaseEvent(wnd, "submit", this.onsubmit);
 }
 
@@ -904,10 +869,6 @@ TestRecorder.Recorder.prototype.clickaction = function(e) {
                     ));
         }
     }
-}
-
-TestRecorder.Recorder.prototype.addComment = function(text) {
-    this.testcase.append(new TestRecorder.CommentEvent(text));
 }
 
 TestRecorder.Recorder.prototype.check = function(e) {
@@ -955,15 +916,13 @@ TestRecorder.Recorder.prototype.onpageload = function() {
 
 TestRecorder.Recorder.prototype.onchange = function(e) {
     var e = new TestRecorder.Event(e);
+    var target = e.target();
+    var type = target.type.toLowerCase();
+    if(type === 'radio' || type === 'checkbox')return;
     var et = TestRecorder.EventTypes;
-    var v = new TestRecorder.ElementEvent(et.Change, e.target());
+    var v = new TestRecorder.ElementEvent(et.Change, target);
     recorder.testcase.append(v);
-    recorder.log("value changed: " + e.target().value);
-}
-
-TestRecorder.Recorder.prototype.onselect = function(e) {
-    var e = new TestRecorder.Event(e);
-    recorder.log("select: " + e.target());
+    recorder.log("value changed: " + target.value);
 }
 
 TestRecorder.Recorder.prototype.onsubmit = function(e) {
@@ -1018,7 +977,12 @@ TestRecorder.Recorder.prototype.onmouseup = function(e) {
 
 TestRecorder.Recorder.prototype.onclick = function(e) {
     var e = new TestRecorder.Event(e);
-
+    var target = e.target();
+    if(target.type){
+        var type = target.type.toLowerCase();
+    }
+    var tagName = target.tagName;
+    if(tagName === 'SELECT' || (tagName === 'BUTTON' && type === 'submit')) return;
     if (e.shiftkey()) {
         recorder.check(e);
         e.stopPropagation();
@@ -1093,14 +1057,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         recorder.open(request.url);
         sendResponse({});
     }
-    if (request.action == "addComment") {
-        recorder.addComment(request.text);
-        sendResponse({});
-    }
 });
-
 //get current status from background
 chrome.runtime.sendMessage({action: "get_status"}, function(response) {
+    console.log(response);
     if (response.active) {
         recorder.start();
     }
