@@ -6,7 +6,8 @@ function RecorderProxy() {
 }
 
 RecorderProxy.prototype.start = function(url) {
-	chrome.tabs.getSelected(null, function(tab) {
+	chrome.tabs.query({"active":true, "currentWindow": true}, function(tabs) {
+        var tab = tabs[0];
 	    chrome.runtime.sendMessage({action: "start", recorded_tab: tab.id, start_url: url});
 	});
 }
@@ -16,13 +17,15 @@ RecorderProxy.prototype.stop = function() {
 }
 
 RecorderProxy.prototype.open = function(url, callback) {
-    chrome.tabs.getSelected(null, function(tab) {
+    chrome.tabs.query({"active":true, "currentWindow": true}, function(tabs) {
+        var tab = tabs[0];
         chrome.tabs.sendMessage(tab.id, {action: "open", 'url': url}, callback);
     });
 }
 
 RecorderProxy.prototype.addComment = function(text, callback) {
-    chrome.tabs.getSelected(null, function(tab) {
+    chrome.tabs.query({"active":true, "currentWindow": true}, function(tabs) {
+        var tab = tabs[0];
         chrome.tabs.sendMessage(tab.id, {action: "addComment", 'text': text}, callback);
     });
 }
@@ -31,16 +34,17 @@ RecorderProxy.prototype.addComment = function(text, callback) {
 // UI
 //----------------------------------------------
 function RecorderUI() {
+    var that = this;
 	this.recorder = new RecorderProxy();
 	chrome.runtime.sendMessage({action: "get_status"}, function(response) {
 	    if (response.active) {
-	    	ui.set_started();
+	    	that.set_started();
 	    } else {
 	    	if (!response.empty) {
-	            ui.set_stopped();
+	            that.set_stopped();
 	        }
-	        chrome.tabs.getSelected(null, function(tab) {
-                  document.forms[0].elements["url"].value = tab.url;
+            chrome.tabs.query({"active":true, "currentWindow": true}, function(tabs) {
+                  document.forms[0].elements["url"].value = tabs[0].url;
             });
 	    }
 	});
@@ -55,51 +59,64 @@ RecorderUI.prototype.start = function() {
     if ( (url.indexOf("http://") == -1) && (url.indexOf("https://")) ) {
         url = "http://" + url;
     }
-    ui.set_started()
+    ui.set_started();
+    console.log(url);
     ui.recorder.start(url);
   
     return false;
 }
 
 RecorderUI.prototype.set_started = function() {
-  var e = document.getElementById("bstop");
-  e.style.display = '';
-  e.onclick = ui.stop;
-  e.value = "Stop Recording";
-  e = document.getElementById("bgo");
-  e.style.display = 'none';
-  e = document.getElementById("bcomment");
-  e.style.display = '';
-  e = document.getElementById("bexport");
-  e.style.display = 'none';
-  e = document.getElementById("bexportxy");
-  e.style.display = 'none';
-  e = document.getElementById("bdoc");
-  e.style.display = 'none';
+    var e = document.getElementById("bstop");
+    e.style.display = '';
+    e.onclick = ui.stop;
+    e.value = "Stop Recording";
+    e = document.getElementById("bgo");
+    e.style.display = 'none';
+    e = document.getElementById("replay");
+    e.style.display = 'none';
+    /*e = document.getElementById("bcomment");
+    e.style.display = '';
+    e = document.getElementById("bexport");
+    e.style.display = 'none';
+    e = document.getElementById("bexportxy");
+    e.style.display = 'none';
+    e = document.getElementById("bdoc");
+    e.style.display = 'none';*/
 }
 
 RecorderUI.prototype.stop = function() {
-  ui.set_stopped();
-	ui.recorder.stop();
-	return false;
+    ui.set_stopped();
+    ui.recorder.stop();
+    return false;
+}
+
+RecorderUI.prototype.replay = function() {
+    chrome.runtime.sendMessage({action: "replay"}, function (response) {
+        if(response.message === 'ok'){
+            console.log('begin replay');
+        }
+    });
 }
 
 RecorderUI.prototype.set_stopped = function() {
 	var e = document.getElementById("bstop");
 	e.style.display = 'none';
 	e = document.getElementById("bgo");
-  e.style.display = '';
-	e = document.getElementById("bcomment");
-	e.style.display = 'none';
-	e = document.getElementById("bexport");
-	e.style.display = '';
-  e = document.getElementById("bexportxy");
-  e.style.display = '';
-  e = document.getElementById("bdoc");
-  e.style.display = '';
+    e.style.display = '';
+    e = document.getElementById("replay");
+    e.style.display = '';
+    /*e = document.getElementById("bcomment");
+    e.style.display = 'none';
+    e = document.getElementById("bexport");
+    e.style.display = '';
+    e = document.getElementById("bexportxy");
+    e.style.display = '';
+    e = document.getElementById("bdoc");
+    e.style.display = '';*/
 }
 
-RecorderUI.prototype.showcomment = function() {
+/*RecorderUI.prototype.showcomment = function() {
   var e = document.getElementById("bcomment");
   e.style.display = 'none';
   e = document.getElementById("comment");
@@ -123,9 +140,9 @@ RecorderUI.prototype.hidecomment = function(bsave) {
   }
   e.value = "";
   return false;
-}
+}*/
 
-RecorderUI.prototype.export = function(options) {
+/*RecorderUI.prototype.export = function(options) {
   if(options && options.xy) {
     chrome.tabs.create({url: "./casper.html?xy=true"});
   } else {
@@ -134,7 +151,7 @@ RecorderUI.prototype.export = function(options) {
 }
 RecorderUI.prototype.exportdoc = function(bexport) {
     chrome.tabs.create({url: "./doc.html"});
-}
+}*/
 
 var ui;
 
@@ -142,12 +159,13 @@ var ui;
 window.onload = function(){
     document.querySelector('input#bgo').onclick=function() {ui.start(); return false;};
     document.querySelector('input#bstop').onclick=function() {ui.stop(); return false;};
-    document.querySelector('input#bcomment').onclick=function() {ui.showcomment(); return false;};
+    document.querySelector('input#replay').onclick=function() {ui.replay(); return false;};
+   /* document.querySelector('input#bcomment').onclick=function() {ui.showcomment(); return false;};
     document.querySelector('input#bexport').onclick=function() {ui.export(); return false;};
     document.querySelector('input#bexportxy').onclick=function() {ui.export({xy: true}); return false;};
     document.querySelector('input#bdoc').onclick=function() {ui.exportdoc(); return false;};
     document.querySelector('input#bsavecomment').onclick=function() {ui.hidecomment(true); return false;};
     document.querySelector('input#bcancelcomment').onclick=function() {ui.hidecomment(false); return false;};
-    document.querySelector('#tagline').onclick=function() {this.innerText='Omne phantasma resurrectionem suam promit.'};
+    document.querySelector('#tagline').onclick=function() {this.innerText='Omne phantasma resurrectionem suam promit.'};*/
     ui = new RecorderUI();
 }

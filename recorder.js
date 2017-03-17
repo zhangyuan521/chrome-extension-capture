@@ -217,6 +217,7 @@ TestRecorder.TestCase = function() {
 
 TestRecorder.TestCase.prototype.append = function(o) {
     this.items[this.items.length] = o;
+    console.log(o);
     chrome.runtime.sendMessage({action: "append", obj: o});
 }
 
@@ -336,6 +337,7 @@ TestRecorder.ElementInfo.prototype.findContainingLabel = function(element) {
 }
 
 TestRecorder.ElementInfo.prototype.getCleanCSSSelector = function(element) {
+    console.log(element);
     if(!element) return;
     var selector = element.tagName ? element.tagName.toLowerCase() : '';
     if(selector == '' || selector == 'html') return '';
@@ -343,9 +345,14 @@ TestRecorder.ElementInfo.prototype.getCleanCSSSelector = function(element) {
     var tmp_selector = '';
     var accuracy = document.querySelectorAll(selector).length;
     if(element.id) {
-        selector = "#" + element.id.replace(/\./g, '\\.');
-        accuracy = document.querySelectorAll(selector).length
-        if(accuracy==1) return selector;
+        if(isNaN(element.id)){
+            selector = "#" + element.id.replace(/\./g, '\\.');
+            console.log(selector);
+            accuracy = document.querySelectorAll(selector).length;
+            if(accuracy==1) return selector;
+        }else{
+            return selector;
+        }
     }
     if(element.className) {
         tmp_selector = '.' + element.className.trim().replace(/ /g,".");
@@ -832,7 +839,6 @@ TestRecorder.Recorder.prototype.pageLoad = function() {
 
 TestRecorder.Recorder.prototype.captureEvents = function() {
     var wnd = this.window;
-    TestRecorder.Browser.captureEvent(wnd, "contextmenu", this.oncontextmenu);
     TestRecorder.Browser.captureEvent(wnd, "click", this.onclick);
     TestRecorder.Browser.captureEvent(wnd, "change", this.onchange);
     TestRecorder.Browser.captureEvent(wnd, "submit", this.onsubmit);
@@ -840,7 +846,6 @@ TestRecorder.Recorder.prototype.captureEvents = function() {
 
 TestRecorder.Recorder.prototype.releaseEvents = function() {
     var wnd = this.window;
-    TestRecorder.Browser.releaseEvent(wnd, "contextmenu", this.oncontextmenu);
     TestRecorder.Browser.releaseEvent(wnd, "click", this.onclick);
     TestRecorder.Browser.releaseEvent(wnd, "change", this.onchange);
     TestRecorder.Browser.releaseEvent(wnd, "submit", this.onsubmit);
@@ -1043,13 +1048,73 @@ TestRecorder.Recorder.prototype.log = function(text) {
         this.logfunc(text);
     }
 }
-recorder.start();
+
+TestRecorder.Repeat = function(items){
+    this.retryNum = 0;
+    this.items = items;
+}
+
+TestRecorder.Repeat.prototype.handleEvent = function(){
+    console.log(this.items);
+    var that = this;
+    for(i in this.items){
+        if(this.retryNum !== 3){
+            if(this.items[i].info && this.items[i].info.selector) {
+                var event = document.querySelector(this.items[i].info.selector);
+                if (event) {
+                    switch (this.items[i].type) {
+                        case TestRecorder.EventTypes.Click:
+                            this.onClick(event, this.items[i]);
+                            break;
+                        case TestRecorder.EventTypes.Change:
+                            this.onChange(event, this.items[i]);
+                            break;
+                    }
+                    delete this.items[i];
+                    this.retryNum = 0;
+                    this.handleEvent.apply(this);
+                } else {
+                    this.retryNum++;
+                    setTimeout(function () {
+                        that.handleEvent.apply(that);
+                    }, 3000);
+                }
+            }else{
+                delete this.items[i];
+                this.retryNum = 0;
+                this.handleEvent.apply(this);
+            }
+        }else {
+            alert('dom出错,无法继续向下执行');
+        }
+        break;
+    }
+}
+
+TestRecorder.Repeat.prototype.onClick = function(event, param){
+    event.click();
+}
+
+TestRecorder.Repeat.prototype.onChange = function(event, param){
+    switch (param.info.tagName){
+        case 'INPUT':
+            this.onChangeInput(event, param);
+            break;
+    }
+}
+
+TestRecorder.Repeat.prototype.onChangeInput = function(event, param){
+    event.value = param.info.value;
+}
+
+
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action == "start") {
         recorder.start();
         sendResponse({});
     }
     if (request.action == "stop") {
+        alert('stop');
         recorder.stop();
         sendResponse({});
     }
@@ -1059,9 +1124,21 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     }
 });
 //get current status from background
-chrome.runtime.sendMessage({action: "get_status"}, function(response) {
-    console.log(response);
-    if (response.active) {
+chrome.runtime.sendMessage({action: "repeatStatus"}, function(response) {
+    console.log(response.currentStatus);
+    if(response.currentStatus){
+        console.log('repeating');
+        chrome.runtime.sendMessage({action: "replaying"}, function(response) {
+            var repeater = new TestRecorder.Repeat(response.items);
+            repeater.handleEvent();
+        });
+    }else{
         recorder.start();
+        chrome.runtime.sendMessage({action: "get_status"}, function(response) {
+            console.log(response);
+            if (response.active) {
+                recorder.start();
+            }
+        });
     }
 });
