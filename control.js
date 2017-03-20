@@ -99,12 +99,22 @@ RecorderUI.prototype.replay = function() {
     });
 }
 
+RecorderUI.prototype.reset = function() {
+    chrome.runtime.sendMessage({action: "reset"}, function (response) {
+        if(response.message === 'ok'){
+            console.log('reset finished');
+        }
+    });
+}
+
 RecorderUI.prototype.set_stopped = function() {
 	var e = document.getElementById("bstop");
 	e.style.display = 'none';
 	e = document.getElementById("bgo");
     e.style.display = '';
     e = document.getElementById("replay");
+    e.style.display = '';
+    e = document.getElementById("reset");
     e.style.display = '';
     /*e = document.getElementById("bcomment");
     e.style.display = 'none';
@@ -160,6 +170,7 @@ window.onload = function(){
     document.querySelector('input#bgo').onclick=function() {ui.start(); return false;};
     document.querySelector('input#bstop').onclick=function() {ui.stop(); return false;};
     document.querySelector('input#replay').onclick=function() {ui.replay(); return false;};
+    document.querySelector('input#reset').onclick=function() {ui.reset(); return false;};
    /* document.querySelector('input#bcomment').onclick=function() {ui.showcomment(); return false;};
     document.querySelector('input#bexport').onclick=function() {ui.export(); return false;};
     document.querySelector('input#bexportxy').onclick=function() {ui.export({xy: true}); return false;};

@@ -9,9 +9,11 @@ console.log('init');
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
     if (request.action == "append") {
-        console.log(request.obj);
-        empty = false;
-        testcase_items[current_url]['actions'].push(request.obj);
+        if(active === true){
+            console.log(request.obj);
+            empty = false;
+            testcase_items[current_url]['actions'].push(request.obj);
+        }
         sendResponse({});
     }
 
@@ -67,6 +69,16 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
                 break;
             }
         });
+        sendResponse({'message': 'ok'});
+    }
+
+    if (request.action == "reset") {
+        testcase_items = new Array();
+        active = false;
+        empty = true;
+        tab_id = null;
+        current_url = null;
+        currentStatus = null;
         sendResponse({'message': 'ok'});
     }
 
