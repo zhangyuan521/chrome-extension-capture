@@ -355,10 +355,10 @@ TestRecorder.ElementInfo.prototype.getCleanCSSSelector = function(element) {
         }
     }
     if(element.className) {
-        tmp_selector = '.' + element.className.trim().replace(/ /g,".");
-        if(document.querySelectorAll(tmp_selector).length < accuracy) {
-            selector = tmp_selector;
-            accuracy = document.querySelectorAll(selector).length
+        tmp_selector = element.className.trim().replace(/ /g,".");
+        if(document.getElementsByClassName(tmp_selector).length < accuracy) {
+            accuracy = document.getElementsByClassName(tmp_selector).length;
+            selector = '.' + tmp_selector;
             if(accuracy==1) return selector;
         }
     }
@@ -822,12 +822,12 @@ TestRecorder.Recorder.prototype.stop = function() {
     this.log("recorder stopped");
     return;
 }
-
+/*
 TestRecorder.Recorder.prototype.open = function(url) {
     var e = new TestRecorder.OpenURLEvent(url);
     this.testcase.append(e);
     this.log("open url: " + url);
-}
+}*/
 
 TestRecorder.Recorder.prototype.pageLoad = function() {
     var doc = recorder.window.document;
@@ -841,14 +841,14 @@ TestRecorder.Recorder.prototype.captureEvents = function() {
     var wnd = this.window;
     TestRecorder.Browser.captureEvent(wnd, "click", this.onclick);
     TestRecorder.Browser.captureEvent(wnd, "change", this.onchange);
-    TestRecorder.Browser.captureEvent(wnd, "submit", this.onsubmit);
+    //TestRecorder.Browser.captureEvent(wnd, "submit", this.onsubmit);
 }
 
 TestRecorder.Recorder.prototype.releaseEvents = function() {
     var wnd = this.window;
     TestRecorder.Browser.releaseEvent(wnd, "click", this.onclick);
     TestRecorder.Browser.releaseEvent(wnd, "change", this.onchange);
-    TestRecorder.Browser.releaseEvent(wnd, "submit", this.onsubmit);
+    //TestRecorder.Browser.releaseEvent(wnd, "submit", this.onsubmit);
 }
 
 
@@ -919,6 +919,7 @@ TestRecorder.Recorder.prototype.onpageload = function() {
     }
 }
 
+//处理<select></select> 和 input为输入值得情况和TEXTAREADE的处理
 TestRecorder.Recorder.prototype.onchange = function(e) {
     var e = new TestRecorder.Event(e);
     var target = e.target();
@@ -930,7 +931,7 @@ TestRecorder.Recorder.prototype.onchange = function(e) {
     recorder.log("value changed: " + target.value);
 }
 
-TestRecorder.Recorder.prototype.onsubmit = function(e) {
+/*TestRecorder.Recorder.prototype.onsubmit = function(e) {
     var e = new TestRecorder.Event(e);
     var et = TestRecorder.EventTypes;
     // We want to save the form element as the event target
@@ -941,7 +942,7 @@ TestRecorder.Recorder.prototype.onsubmit = function(e) {
     var v = new TestRecorder.ElementEvent(et.Submit, t);
     recorder.testcase.append(v);
     recorder.log("submit: " + e.target());
-}
+}*/
 
 TestRecorder.Recorder.prototype.ondrag = function(e) {
     var e = new TestRecorder.Event(e);
@@ -987,7 +988,7 @@ TestRecorder.Recorder.prototype.onclick = function(e) {
         var type = target.type.toLowerCase();
     }
     var tagName = target.tagName;
-    if(tagName === 'SELECT' || (tagName === 'BUTTON' && type === 'submit')) return;
+    if(tagName === 'SELECT') return;
     if (e.shiftkey()) {
         recorder.check(e);
         e.stopPropagation();
@@ -1072,7 +1073,9 @@ TestRecorder.Repeat.prototype.handleEvent = function(){
                     }
                     delete this.items[i];
                     this.retryNum = 0;
-                    this.handleEvent.apply(this);
+                    setTimeout(function () {
+                        that.handleEvent.apply(that);
+                    }, 800);
                 } else {
                     this.retryNum++;
                     setTimeout(function () {
@@ -1100,6 +1103,12 @@ TestRecorder.Repeat.prototype.onChange = function(event, param){
         case 'INPUT':
             this.onChangeInput(event, param);
             break;
+        case 'TEXTAREA':
+            this.onChangeInput(event, param);
+            break;
+        case 'SELECT':
+            this.onChangeInput(event, param);
+            break;
     }
 }
 
@@ -1118,10 +1127,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         recorder.stop();
         sendResponse({});
     }
-    if (request.action == "open") {
+    /*if (request.action == "open") {
         recorder.open(request.url);
         sendResponse({});
-    }
+    }*/
 });
 //get current status from background
 chrome.runtime.sendMessage({action: "repeatStatus"}, function(response) {
@@ -1129,15 +1138,22 @@ chrome.runtime.sendMessage({action: "repeatStatus"}, function(response) {
     if(response.currentStatus){
         console.log('repeating');
         chrome.runtime.sendMessage({action: "replaying"}, function(response) {
+            console.log(response);
             var repeater = new TestRecorder.Repeat(response.items);
-            repeater.handleEvent();
+            setTimeout(function () {
+                repeater.handleEvent();
+            },2000);
         });
     }else{
         recorder.start();
         chrome.runtime.sendMessage({action: "get_status"}, function(response) {
-            console.log(response);
             if (response.active) {
                 recorder.start();
+            }
+            if(!response.empty) {
+                chrome.runtime.sendMessage({action: "redirect"}, function(response) {
+                    console.log('redirect append begin');
+                });
             }
         });
     }
