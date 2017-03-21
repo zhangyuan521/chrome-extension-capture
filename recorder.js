@@ -337,9 +337,9 @@ TestRecorder.ElementInfo.prototype.findContainingLabel = function(element) {
 }
 
 TestRecorder.ElementInfo.prototype.getCleanCSSSelector = function(element) {
-    console.log(element);
     if(!element) return;
     var selector = element.tagName ? element.tagName.toLowerCase() : '';
+    console.log(selector);
     if(selector == '' || selector == 'html') return '';
 
     var tmp_selector = '';
@@ -354,14 +354,14 @@ TestRecorder.ElementInfo.prototype.getCleanCSSSelector = function(element) {
             return selector;
         }
     }
-    if(element.className) {
+    /*if(element.className) {
         tmp_selector = element.className.trim().replace(/ /g,".");
         if(document.getElementsByClassName(tmp_selector).length < accuracy) {
             accuracy = document.getElementsByClassName(tmp_selector).length;
             selector = '.' + tmp_selector;
             if(accuracy==1) return selector;
         }
-    }
+    }*/
     var parent = element.parentNode;
     var parent_selector = this.getCleanCSSSelector(parent);
 
