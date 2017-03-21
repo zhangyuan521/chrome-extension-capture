@@ -1085,7 +1085,7 @@ TestRecorder.Repeat.prototype.handleEvent = function(){
             }else{
                 delete this.items[i];
                 this.retryNum = 0;
-                this.handleEvent.apply(this);
+                that.handleEvent.apply(that);
             }
         }else {
             alert('dom出错,无法继续向下执行');
@@ -1113,11 +1113,13 @@ TestRecorder.Repeat.prototype.onChange = function(event, param){
     }
 }
 
-TestRecorder.Repeat.prototype.onChangeInput = function(event, param){
-    event.blur();
+TestRecorder.Repeat.prototype.onChangeInput = function(event, param){event.blur();
     event.click();
     event.focus();
     event.value = param.info.value;
+    var changeEvent = document.createEvent("HTMLEvents");
+    changeEvent.initEvent("change", true, true);
+    event.dispatchEvent(changeEvent);
 }
 
 
