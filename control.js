@@ -102,7 +102,16 @@ RecorderUI.prototype.replay = function() {
 RecorderUI.prototype.reset = function() {
     chrome.runtime.sendMessage({action: "reset"}, function (response) {
         if(response.message === 'ok'){
+            document.forms[0].elements["url"].value = '';
             console.log('reset finished');
+            var e = document.getElementById("bstop");
+            e.style.display = 'none';
+            e = document.getElementById("bgo");
+            e.style.display = '';
+            e = document.getElementById("replay");
+            e.style.display = 'none';
+            e = document.getElementById("reset");
+            e.style.display = 'none';
         }
     });
 }
@@ -111,7 +120,7 @@ RecorderUI.prototype.set_stopped = function() {
 	var e = document.getElementById("bstop");
 	e.style.display = 'none';
 	e = document.getElementById("bgo");
-    e.style.display = '';
+    e.style.display = 'none';
     e = document.getElementById("replay");
     e.style.display = '';
     e = document.getElementById("reset");

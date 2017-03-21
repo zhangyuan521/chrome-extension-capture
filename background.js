@@ -4,6 +4,7 @@ var empty = true;  //是否有时间触发
 var tab_id = null; //当前tab_id号
 var current_url = null; //当前tab的url
 var currentStatus = null; //判断是否是repeating状态
+var index = 0;
 
 console.log('init');
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
@@ -12,7 +13,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if(active === true){
             console.log(request.obj);
             empty = false;
-            testcase_items[current_url]['actions'].push(request.obj);
+            testcase_items[index - 1]['actions'].push(request.obj);
         }
         sendResponse({});
     }
@@ -36,10 +37,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
                 alert("You are now recording your test sequence.");
                 tab_id = tab.id;
                 current_url = tab.url;
-                testcase_items[tab.url] = {
+                testcase_items[index] = {
                     "tab_id": tab.id,
-                    "actions": []
+                    "actions": [],
+                    "url": tab.url
                 };
+                index++;
                 sendResponse({start: true});
             });
         }
@@ -47,6 +50,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
     if (request.action == "stop") {
         active = false;
+        index = 0;
         chrome.tabs.sendMessage(tab_id, {action: "stop"});
         sendResponse({});
     }
@@ -60,14 +64,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action == "replay") {
         chrome.tabs.query({"active": true, "currentWindow": true}, function (tabs) {
             var tab = tabs[0];
-            for(var i in testcase_items){
-                console.log("repalying open url:" + i);
-                chrome.tabs.update(tab.tab_id, {url: i}, function(tab) {
-                    currentStatus = "replaying";
-                    alert("Begin replay, please don't execute other tasks");
-                });
-                break;
-            }
+            chrome.tabs.update(tab.tab_id, {url: testcase_items[index]['url']}, function(tab) {
+                currentStatus = "replaying";
+                alert("Begin replay, please don't execute other tasks");
+            });
         });
         sendResponse({'message': 'ok'});
     }
@@ -79,17 +79,20 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         tab_id = null;
         current_url = null;
         currentStatus = null;
+        index = 0;
         sendResponse({'message': 'ok'});
     }
 
     //获取该回放url所有的动作
     if(request.action == 'replaying'){
-        if(testcase_items[sender.tab.url]){
-            console.log(sender,testcase_items[sender.tab.url]['actions']);
-            sendResponse({'items': testcase_items[sender.tab.url]['actions']});
+        if(index > testcase_items.length -1){
+            console.log('已执行完毕,没有其他的anctions');
         }else{
-            console.log(sender.tab.url+"所对应的url的actions不存在");
+            console.log(sender,testcase_items[index]['actions']);
+            sendResponse({'items': testcase_items[index]['actions']});
+            index++;
         }
+
 
         /*chrome.tabs.query({"active": true, "currentWindow": true}, function (tabs) {
             var siteInfo = testcase_items[0];
@@ -112,10 +115,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if(request.action == 'redirect'){
         tab_id = sender.tab.id;
         current_url = sender.tab.url;
-        testcase_items[current_url] = {
+        testcase_items[index] = {
             "tab_id": tab_id,
-            "actions": []
+            "actions": [],
+            "url": current_url
         };
+        index ++;
         sendResponse({});
     }
 });

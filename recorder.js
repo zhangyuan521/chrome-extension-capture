@@ -1095,6 +1095,7 @@ TestRecorder.Repeat.prototype.handleEvent = function(){
 }
 
 TestRecorder.Repeat.prototype.onClick = function(event, param){
+    event.focus();
     event.click();
 }
 
@@ -1113,6 +1114,9 @@ TestRecorder.Repeat.prototype.onChange = function(event, param){
 }
 
 TestRecorder.Repeat.prototype.onChangeInput = function(event, param){
+    event.blur();
+    event.click();
+    event.focus();
     event.value = param.info.value;
 }
 
