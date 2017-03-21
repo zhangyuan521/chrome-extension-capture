@@ -347,7 +347,6 @@ TestRecorder.ElementInfo.prototype.getCleanCSSSelector = function(element) {
     if(element.id) {
         if(isNaN(element.id)){
             selector = "#" + element.id.replace(/\./g, '\\.');
-            console.log(selector);
             accuracy = document.querySelectorAll(selector).length;
             if(accuracy==1) return selector;
         }else{
@@ -383,6 +382,7 @@ TestRecorder.ElementInfo.prototype.getCleanCSSSelector = function(element) {
         selector_array = parent_selector.split(' ');
         if(selector_array.length>1) {
             for(var i=1;i<selector_array.length;i++) {
+                if(selector_array[i-1] === '>') continue;
                 tmp_selector = selector_array.slice(0,i).join(' ') + ' ' + selector;
                 if(document.querySelectorAll(tmp_selector).length == 1) {
                     selector = tmp_selector;
@@ -399,6 +399,7 @@ TestRecorder.ElementInfo.prototype.getCleanCSSSelector = function(element) {
                 selector = tmp_selector;
             } else {
                 selector = parent_selector + " > " + selector;
+                console.log(selector);
             }
         }
     }
@@ -1095,8 +1096,8 @@ TestRecorder.Repeat.prototype.handleEvent = function(){
 }
 
 TestRecorder.Repeat.prototype.onClick = function(event, param){
-    event.focus();
     event.click();
+    event.focus();
 }
 
 TestRecorder.Repeat.prototype.onChange = function(event, param){
@@ -1129,7 +1130,6 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         sendResponse({});
     }
     if (request.action == "stop") {
-        alert('stop');
         recorder.stop();
         sendResponse({});
     }

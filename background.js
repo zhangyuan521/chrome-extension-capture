@@ -34,7 +34,6 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             empty = true;
             testcase_items = new Array();
             chrome.tabs.update(tab_id, {url: request.start_url}, function(tab) {
-                alert("You are now recording your test sequence.");
                 tab_id = tab.id;
                 current_url = tab.url;
                 testcase_items[index] = {
